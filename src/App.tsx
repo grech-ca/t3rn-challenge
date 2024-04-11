@@ -7,6 +7,7 @@ import {Buffer} from 'buffer'
 import {Header} from '@polkadot/types/interfaces'
 import {useDebounce} from 'use-debounce'
 import { BlockHeader } from './BlockHeader';
+import {FaGithub} from 'react-icons/fa';
 
 const BATCH_LIMIT = 5
 
@@ -107,6 +108,10 @@ export default function App() {
 
   return (
     <div className="h-dvh flex flex-col gap-y-12 p-32 items-center after:absolute after:-z-10 after:inset-0 after:bg-[radial-gradient(circle,rgba(100,0,150,0.05)_0%,rgba(255,255,255,0)_50%)]">
+      <a href="https://github.com/grech-ca/t3rn-challenge" target="_blank" className="absolute right-6 top-6 flex text-lg items-center gap-x-2 opacity-50 transition-opacity hover:opacity-100">
+        <FaGithub className="text-xl" />
+        <span className="font-medium">grech-ca/t3rn-challenge</span>
+      </a>
       <div className="flex flex-col gap-y-6">
         <h1 className="font-medium text-center text-6xl">t3rn challenge</h1>
         <p className="max-w-screen-sm p-4 text-sm bg-white rounded-lg shadow-xl shadow-black/5" >
