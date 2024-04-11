@@ -9,7 +9,7 @@ import {useDebounce} from 'use-debounce'
 import { BlockHeader } from './BlockHeader';
 import {FaGithub} from 'react-icons/fa';
 
-const BATCH_LIMIT = 5
+const BATCH_LIMIT = 15
 
 export default function App() {
   const [leaves, setLeaves] = useState<string[]>([])
