@@ -101,7 +101,7 @@ export default function App() {
     return headers.get(hash)
   }, [debouncedSearch, headerBlockMap, headers])
 
-  const headersToRender = useMemo(() => Array.from(headers.entries()).reverse().slice(0, 150), [headers])
+  const headersToRender = useMemo(() => Array.from(headers.entries()).reverse().slice(0, 10), [headers])
 
   const handleSearch: ChangeEventHandler<HTMLInputElement> = ({target: {value}}) => setSearch(value)
 
@@ -109,14 +109,20 @@ export default function App() {
     <div className="h-dvh flex flex-col gap-y-12 p-32 items-center after:absolute after:-z-10 after:inset-0 after:bg-[radial-gradient(circle,rgba(100,0,150,0.05)_0%,rgba(255,255,255,0)_50%)]">
       <div className="flex flex-col gap-y-6">
         <h1 className="font-medium text-center text-6xl">t3rn challenge</h1>
-        <cite
-          className="pl-4 flex max-w-screen-sm gap-x-4 before:flex before:w-4 before:rounded-full before:h-full before:bg-black"
-        >
-          In this challenge, you will be building a Polkadot block header light client. The program should
-          listen to new Polkadot headers, and store sequential batches of them inside a Merkle tree. The
-          stored data should be accessible in some form of your choosing and fulfill the following
-          attributes.
-        </cite>
+        <p className="max-w-screen-sm p-4 text-sm bg-white rounded-lg shadow-xl shadow-black/5" >
+          I hope I got the challenge idea right. But anyways, here is the note so you understand what happens here:
+
+          <ul className="[&>li>b]:font-bold [&>li]:after:[content:';'] [&>li:last-child]:after:[content:''] list-disc list-inside">
+            <li>I set the <b>BATCH_LIMIT</b> to <b>15</b> for demonstration purposes</li>
+            <li>I decided not to virtualize the list, so you will see only 10 latest block headers</li>
+            <li>
+              Since the proof cannot be generated before the merkle tree is created,
+              there's a loading indicator in the top right corner of each block header card.
+              When the merkle tree is created for a batch of headers, these headers will get
+              validated and you will see either "✅" or "❌" depending on the proof verification result.
+            </li>
+          </ul>
+        </p>
       </div>
       <div className="grid gap-y-12">
         <label className="w-[24rem] grid gap-y-4">
