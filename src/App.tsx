@@ -1,40 +1,35 @@
-import { ApiPromise, WsProvider } from '@polkadot/api';
-import {ChangeEventHandler, Fragment, useCallback, useEffect, useMemo, useRef, useState} from 'react'
+import {ChangeEventHandler, Fragment, useCallback, useEffect, useMemo, useState} from 'react'
 import {MerkleTree} from 'merkletreejs';
 import SHA256 from 'crypto-js/sha256'
-import {useAsync} from 'react-use'
 import {Buffer} from 'buffer'
 import {Header} from '@polkadot/types/interfaces'
 import {useDebounce} from 'use-debounce'
 import { BlockHeader } from './BlockHeader';
-import {FaGithub} from 'react-icons/fa';
+import { Note } from './Note';
+import { GithubLink } from './GithubLink';
+import { useHeaderSubscription } from './hooks/use-header-subscription';
 
+// NOTE: I picked 15 so you wouldn't need to wait for all headers get validated for so long
 const BATCH_LIMIT = 15
 
 export default function App() {
   const [leaves, setLeaves] = useState<string[]>([])
-  const headerHashesRef = useRef<Record<string, true>>({})
-
+  const [trees, setTrees] = useState<MerkleTree[]>([])
+  const [headers, setHeaders] = useState<Record<string, {isVerified: boolean | null; data: Header}>>({})
+  // NOTE: headerBlockMap is used for instant search for headers by block number,
+  //       so it's literally just Map(blockNumber -> headerHash)
+  const [headerBlockMap, setHeaderBlockMap] = useState<Map<number, string>>(() => new Map())
   const [search, setSearch] = useState('')
   const [debouncedSearch] = useDebounce(search, 300)
 
-  const [trees, setTrees] = useState<MerkleTree[]>([])
-  const [headers, setHeaders] = useState<Map<string, {isVerified: boolean | null; data: Header}>>(() => new Map())
-  const [headerBlockMap, setHeaderBlockMap] = useState<Map<number, string>>(() => new Map())
-
-  const unsubRef = useRef<undefined | VoidFunction>(undefined)
-
-  const addLeaf = (leaf: string) => {
-    setLeaves(prev => [...prev, leaf])
-  }
-
-  const addHeader = (header: Header) => {
+  const addHeader = useCallback((header: Header) => {
     const headerHex = header.toHex()
     const blockNumber = header.number.toNumber()
 
-    setHeaders(prev => new Map(prev.entries()).set(headerHex, {isVerified: null, data: header}))
+    setLeaves(prev => [...prev, headerHex])
+    setHeaders(prev => ({...prev, [headerHex]: {isVerified: null, data: header}}))
     setHeaderBlockMap(prev => new Map(prev.entries()).set(blockNumber, headerHex))
-  }
+  }, [])
 
   const createMerkleTree = useCallback((leaves: string[]) => {
     const tree = new MerkleTree(leaves, SHA256, { concatenator: Buffer.concat })
@@ -52,7 +47,7 @@ export default function App() {
     if (leaves.length === BATCH_LIMIT) {
       const {tree, proofs} = createMerkleTree(leaves)
       setHeaders(prev => {
-        return new Map(Array.from(prev.entries()).map(([hash, header]) => {
+        return Object.fromEntries(Object.entries(prev).map(([hash, header]) => {
           if (header.isVerified) return [hash, header]
 
           const proofByHash = proofs[hash]
@@ -62,31 +57,15 @@ export default function App() {
         }))
       })
       setLeaves([])
-      headerHashesRef.current = {}
     }
   }, [createMerkleTree, leaves])
 
-  useAsync(async () => {
-    const wsProvider = new WsProvider('wss://rpc.polkadot.io');
-    const api = await ApiPromise.create({ provider: wsProvider });
-
-    const unsub = await api.rpc.chain.subscribeNewHeads((header) => {
-      const headerHex = header.toHex()
-      if (headerHashesRef.current[headerHex]) return
-      headerHashesRef.current[headerHex] = true
-
-      addLeaf(headerHex)
-      addHeader(header)
-    });
-
-    unsubRef.current = unsub
-  }, [])
-
-  useEffect(() => unsubRef.current, [])
+  useHeaderSubscription(addHeader)
 
   const searchedHeader = useMemo(() => {
     let hash: string = ''
 
+    // NOTE: If the search value is not a number, it's considered as hash
     if (!isNaN(parseInt(debouncedSearch))) {
       const hashByNumber = headerBlockMap.get(parseInt(debouncedSearch))
 
@@ -99,35 +78,19 @@ export default function App() {
       hash = debouncedSearch
     }
 
-    return headers.get(hash)
+    return headers[hash]
   }, [debouncedSearch, headerBlockMap, headers])
 
-  const headersToRender = useMemo(() => Array.from(headers.entries()).reverse().slice(0, 10), [headers])
+  const headersToRender = useMemo(() => Object.entries(headers).reverse(), [headers])
 
   const handleSearch: ChangeEventHandler<HTMLInputElement> = ({target: {value}}) => setSearch(value)
 
   return (
     <div className="h-dvh flex flex-col gap-y-12 p-32 items-center after:absolute after:-z-10 after:inset-0 after:bg-[radial-gradient(circle,rgba(100,0,150,0.05)_0%,rgba(255,255,255,0)_50%)]">
-      <a href="https://github.com/grech-ca/t3rn-challenge" target="_blank" className="absolute right-6 top-6 flex text-lg items-center gap-x-2 opacity-50 transition-opacity hover:opacity-100">
-        <FaGithub className="text-xl" />
-        <span className="font-medium">grech-ca/t3rn-challenge</span>
-      </a>
+      <GithubLink />
       <div className="flex flex-col gap-y-6">
         <h1 className="font-medium text-center text-6xl">t3rn challenge</h1>
-        <p className="max-w-screen-sm p-4 text-sm bg-white rounded-lg shadow-xl shadow-black/5" >
-          I hope I got the challenge idea right. But anyways, here is the note so you understand what happens here:
-
-          <ul className="[&>li>b]:font-bold [&>li]:after:[content:';'] [&>li:last-child]:after:[content:''] list-disc list-inside">
-            <li>I set the <b>BATCH_LIMIT</b> to <b>15</b> for demonstration purposes</li>
-            <li>I decided not to virtualize the list, so you will see only 10 latest block headers</li>
-            <li>
-              Since the proof cannot be generated before the merkle tree is created,
-              there's a loading indicator in the top right corner of each block header card.
-              When the merkle tree is created for a batch of headers, these headers will get
-              validated and you will see either "✅" or "❌" depending on the proof verification result.
-            </li>
-          </ul>
-        </p>
+        <Note />
       </div>
       <div className="grid gap-y-12">
         <label className="w-[24rem] grid gap-y-4">
@@ -153,10 +116,6 @@ export default function App() {
             ))
           )}
         </div>
-
-        {search.length === 0 && headersToRender.length > 10 && (
-          <div className="text-center p-6 pb-12 text-xl font-medium">No virtualization 🤷</div>
-        )}
       </div>
     </div>
   )
